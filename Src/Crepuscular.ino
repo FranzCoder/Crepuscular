@@ -5,7 +5,7 @@
 char* ssid = "SSID";
 char* key = "WPA";
 IPAddress myIPAddress(192, 168, 1, 100);
-IPAddress mqttServerIP (192, 168, 1, 10);
+IPAddress mqttServerIP(192, 168, 1, 10); 
 int mqttServerPort = 1883;
 char* mqttUsername = "mqttuser";
 char* mqttPasswd = "mqttpassword";
@@ -41,7 +41,7 @@ long lastLight = -intervalLight;
 long lastMQTT = -intervalMQTT;
 long lastState = -intervalState;
 
-String relePrevState = "off";
+String relePrevState = "on";
 
 float lastTempValue = 0;
 float lastHumValue = 0;
@@ -55,7 +55,7 @@ void setup() {
   tempSetInputPin (pinTemp);
   lightSetInputPin (pinLight);
   digitalWrite (LED_BUILTIN, HIGH);
-  releStateChange(HIGH);
+  releStateChange(LOW);
   
   MQTTInit(ssid, key, myIPAddress, mqttServerIP, mqttServerPort, mqttUsername, mqttPasswd);
   MQTTSubscribe (topicRelayCommand);
@@ -122,7 +122,6 @@ void loop() {
     if (brightnessValue != 0)
     {
       //Serial.print (brightnessValue);
-      //Serial.println (" Lumens");
  
       char buff[4]; // Buffer big enough for 4-character float
       dtostrf(brightnessValue, 0, 0, buff);
@@ -163,6 +162,32 @@ void MQTTCallback (String &topic, String &payload)
   }
   if (topic == topicCrepuscularCommand)
   {
-    if (payload == "announce") MQTTPublish (topicAvailability, "true");
+    if (payload == "announce") 
+      MQTTPublish (topicAvailability, "true");
+    else
+    {
+      if (payload == "data")
+      {
+        if (tempReadData(temperature, humidity) == 0)
+        {
+          char buff[8]; // Buffer big enough for 7-character float
+          dtostrf(temperature, 0, 2, buff); // Leave room for too large numbers!
+          MQTTPublish(topicTemperature, buff);
+          lastTempValue = temperature;
+
+          dtostrf(humidity, 0, 2, buff);
+          MQTTPublish(topicHumidity, buff);
+          lastHumValue = humidity;
+        }
+
+        int brightnessValue = lightReadData();
+        if (brightnessValue != 0)
+        {
+          char buff[4]; // Buffer big enough for 4-character float
+          dtostrf(brightnessValue, 0, 0, buff);
+          MQTTPublish(topicBrightness, buff);
+        }
+      }
+    }
   }
 }
